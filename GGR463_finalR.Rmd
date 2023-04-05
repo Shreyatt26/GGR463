@@ -1,0 +1,115 @@
+---
+title: "GGR463 Final Report"
+author: "Shreya Tanguturi"
+date: '2023-04-04'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+## import required libraries into R
+library(rgdal)
+library(raster)
+library(sp)
+library(sf)
+library(ggplot2)
+library(leaflet)
+```
+
+
+
+```{r}
+## set working directory
+setwd("C:/Users/Shreya Tanguturi/Desktop/GGR463 Project Data")
+```
+
+
+
+```{r shapefile}
+## load the Vancouver boundary polygon shapefile
+vancouver <- read_sf("local-area-boundary.shp")
+## find the extent of this shapefile
+plot(vancouver)
+## tells us what the shapefile contains
+class(x = vancouver)
+extent(vancouver)
+#set projection for vancouver
+vancouver <- st_set_crs(vancouver, "+proj=utm +zone=10 +north +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+plot(vancouver)
+```
+
+
+
+```{r map}
+library(leaflet)
+vancouver_data <- read.csv("Vancouver_crimedata.csv")
+
+latitude <- c(vancouver_data$LATITUDE)
+longitude <- c(vancouver_data$LONGITUDE)
+
+## add schools point data
+schools <- read.csv("schools.csv")
+map1 = leaflet(vancouver_data) %>% addTiles() %>%
+  addCircleMarkers(lng = ~longitude, lat = ~latitude,
+                   popup = ~vancouver_data$ï..TYPE, label=~vancouver_data$ï..TYPE, fill = TRUE,
+                   fillColor="black")%>%
+  addPolygons(data=vancouver) %>%
+  addCircleMarkers(lng=~schools$Longitude, lat=~schools$Latitude,
+             popup = ~schools$ï..ADDRESS.SCHOOL_CATEGORY.SCHOOL_NAME.Geom.Geo.Local.Area.geo_point_2, label = ~schools$ï..ADDRESS.SCHOOL_CATEGORY.SCHOOL_NAME.Geom.Geo.Local.Area.geo_point_2, fillColor="red")%>%
+  addLegend("bottomright", 
+            title = "Crime Data",
+            colors = c("black", "red"),
+            labels = c("Locations of Crimes in Vancouver", "Locations of Schools"))
+map1
+```
+
+
+```{r socioeconomic}
+## open census data
+census2016 <- read.csv("2016-van-census.csv")
+longc <- c(census2016$Longitude)
+latc <- c(census2016$Latitude)
+
+## merge our census data with the boundary file
+## encoding causes the neighbourhood name variable to show up as "ï..name", we change this to "name" so that we can merge shapefile and csv
+names(census2016)[names(census2016)=="ï..name"] <- "name"
+censusfinal <- merge(census2016, vancouver, by="name")
+
+#socioeconomic variable map
+#mypal <- colorNumeric(palette = "BuPu", domain = as.numeric(census1$Average.employment.income.in.2015.among.recipients....))
+#census1 <- sf::st_as_sf(censusfinal)
+#create choropleth map
+#soc_map <- leaflet(census1) %>%
+#  addTiles() %>%
+#  addPolygons(data=census1,
+#              color=~mypal(as.numeric(census1$Average.employment.income.in.2015.among.recipients....)),
+#              stroke=FALSE,
+#              fillOpacity=0.9,
+#              weight=1)%>%
+#  addLegend("bottomright",
+#            title = "Average Employment Income in 2015",
+#            colors = "blue",
+#            labels = "Income")
+#soc_map
+census1 <- sf::st_as_sf(censusfinal)
+mypal <- colorNumeric(palette = "BuPu", domain = as.numeric(census1$Total...Highest.certificate..diploma.or.degree.for.the.population.aged.15.years.and.over.in.private.households...25..sample.data))
+#create choropleth map
+soc_map <- leaflet(census1) %>%
+  addTiles() %>%
+  addPolygons(data=census1,
+              color=~mypal(as.numeric(census1$Total...Highest.certificate..diploma.or.degree.for.the.population.aged.15.years.and.over.in.private.households...25..sample.data)),
+              stroke=FALSE,
+              fillOpacity=0.9,
+              weight=1)%>%
+  addLegend("bottomright",
+            title = "Highest Certificate (Diploma or Degree)",
+            colors = "purple",
+            labels = "Education")
+soc_map
+## domain was changed accordingly for each variable that was mapped
+```
+
